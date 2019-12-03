@@ -1,0 +1,23 @@
+{
+  "name": "autoreact",
+  "version": "1.0.0",
+  "description": "Slack Bot that creates auto reactions to any message sent by a person",
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dr-N0/AutoReact.git"
+  },
+  "keywords": [
+    "NodeJS",
+    "SlackBot"
+  ],
+  "author": "Beckett Jenen",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Dr-N0/AutoReact/issues"
+  },
+  "homepage": "https://github.com/Dr-N0/AutoReact#readme"
+}
