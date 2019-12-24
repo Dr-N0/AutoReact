@@ -20,24 +20,57 @@ app.use(bodyParser.urlencoded({ extended: true })); // support encoded bodies
 const slackEvents = createEventAdapter(process.env.SLACK_SIGNING_SECRET); // Initialize using signing secret from environment variables
 const port = process.env.PORT || 5000;
 
-console.log("Start...");
-setUserVariables();
-
 // GLOBALS
 var re;
+var ulist = [];
+var update = true;
+
+// SETUP PROCESSES
+console.log("Start...");
+setUserVariables();
 
 // FUNCTIONS
 function createReact(username, reaction){
 	try {
-		var MongoClient = require('mongodb').MongoClient;
-		var url = process.env.DB_URL;
-		MongoClient.connect(url, function(err, db) {
+		MongoClient.connect(url, { useUnifiedTopology: true }, function(err, db) {
 			if (err) throw err;
 			var dbo = db.db("autoreactdb");
-			var object = { user: username, reac: reaction};
+			var object = { user: username, reac: reaction };
 			dbo.collection("reactions").insertOne(object, function(err, res) {
+				if (err){
+					console.log("\nInsert error (most likely a duplicate)\n");
+					console.log(err);
+					db.close();
+				}else{
+					if (ulist.length != 0) {
+						ulist.push(username);
+					}
+					console.log("Reaction added!");
+					db.close();
+				}
+			});
+		});
+	}
+	catch(err) {
+		console.log(err.message);
+	}
+}
+
+function deleteReact(username, reaction){
+	try {
+		MongoClient.connect(url, { useUnifiedTopology: true }, function(err, db) {
+			if (err) throw err;
+			var dbo = db.db("autoreactdb");
+			var object1 = { user: username, reac: reaction };
+			dbo.collection("reactions").deleteOne(object1, function(err, obj) {
 				if (err) throw err;
-				console.log("Reaction added!");
+				if (ulist.length != 0 && obj.deletedCount != 0) {
+					var index = ulist.indexOf(username);
+					if (index !== -1) {
+						ulist.splice(index, 1);
+					}
+				}
+				console.log("Reaction deleted!");
 				db.close();
 			});
 		});
@@ -49,12 +82,17 @@ function createReact(username, reaction){
 
 function setUserVariables(){
 	try{
-		MongoClient.connect(url, function(err, db) {
+		MongoClient.connect(url, { useUnifiedTopology: true }, function(err, db) {
 			if (err) throw err;
 			var dbo = db.db("autoreactdb");
 			dbo.collection("reactions").find({}).toArray(function(err, result) {
 				if (err) throw err;		
 				re = result;
+				if (ulist.length == 0) {
+					for (var j = 0; j < re.length; j++) {
+						ulist.push(re[j].user)
+					}
+				}
 				db.close();
 			});
 		});
@@ -67,10 +105,11 @@ function setUserVariables(){
 // ROUTES
 app.post('/add', (req, res) => {
 	let text = req.body.text;
+	let info = req.body.user_id;
 	var comTokens = text.split(" ");
 	if (comTokens[0][1] == "@" && comTokens[1][0] == ":" && comTokens[1].lastIndexOf(":") != 0) {
-		u = comTokens[0].split(/[@|]/);
-		r = comTokens[1].split(/[::]/);
+		var u = comTokens[0].split(/[@|]/);
+		var r = comTokens[1].split(/[::]/);
 		console.log(u[1])
 		console.log(r[1])
 		createReact(u[1], r[1]);
@@ -78,16 +117,28 @@ app.post('/add', (req, res) => {
 	}else{
 		res.send("Syntax Error: The command you entered was incorrect");
 	}
-	res.send(text);
+	res.send("Addition sent ( "+ text + " )");
 });
 
-app.post('/remove', (req, res) => {
+app.post('/delete', (req, res) => {
 	let text = req.body.text;
+	let info = req.body.user_id;
 	var comTokens = text.split(" ");
-	if (comTokens[0][1] == "@") {
-		console.log(comTokens);
+	if (comTokens[0][1] == "@" && comTokens[1][0] == ":" && comTokens[1].lastIndexOf(":") != 0) {
+		var u = comTokens[0].split(/[@|]/);
+		var r = comTokens[1].split(/[::]/);
+		console.log(u[1])
+		console.log(r[1])
+		if (info == u[1]) {
+			deleteReact(u[1], r[1]);
+			setUserVariables();
+		}else{
+			res.send("You are not authorized to send that command!");
+		}
+	}else{
+		res.send("Syntax Error: The command you entered was incorrect");
 	}
-	res.send(text);
+	res.send("");
 });
 
 app.listen(3000, () => {
@@ -96,14 +147,19 @@ app.listen(3000, () => {
 
 // SLACK EVENTS API
 slackEvents.on("message", (event) => {
-	if (event.subtype != "bot_message") {
-		// web.chat.postMessage({channel: event.channel, text: event.user}).catch(console.error);
-	}
+	// if (event.subtype != "bot_message") {
+	// 	web.chat.postMessage({channel: event.channel, text: event.user}).catch(console.error);
+	// }
 	console.log(event);
 	console.log(re);
-	
+	console.log(ulist);
+
 	for (var j = 0; j < re.length; j++) {
-		if (event.user == re[j].user) {
+		if (event.user == ulist[j]) {
+			if (update == true) {
+				setUserVariables();
+				update = false;
+			}
 			web.reactions.add(
 			{
 				channel: event.channel, 
@@ -112,6 +168,8 @@ slackEvents.on("message", (event) => {
 			}).catch(console.error);
 		}
 	}
+
+	update = true;
 });
 
 // Handle errors (see `errorCodes` export)
