@@ -1,20 +1,21 @@
 {
   "name": "autoreact",
-  "version": "1.0.0",
   "description": "Slack Bot that creates auto reactions to any message sent by a person",
+  "version": "1.0.0",
+  "author": "Beckett Jenen",
   "main": "main.js",
   "scripts": {
-    "start": "nodemon main.js"
+    "test": "nodemon main.js",
+    "start": "node main.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Dr-N0/AutoReact.git"
+    "url": "git://github.com/Dr-N0/AutoReact.git"
   },
   "keywords": [
     "NodeJS",
     "SlackBot"
   ],
-  "author": "Beckett Jenen",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/Dr-N0/AutoReact/issues"
@@ -26,7 +27,8 @@
   "dependencies": {
     "@slack/events-api": "^2.3.0",
     "@slack/web-api": "^5.6.0",
-    "dotenv": "^8.2.0",
+    "body-parser": "~1.19.0",
+    "express": "4.17.1",
     "mongodb": "^3.4.1",
     "request": "^2.88.0"
   }

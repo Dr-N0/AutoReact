@@ -1,7 +1,6 @@
 // Author: Beckett Jenen (Dr-N0)
 
 // NODE MODULES
-require("dotenv").config();
 const express = require("express");
 const app = express();
 var bodyParser = require("body-parser");
@@ -25,7 +24,9 @@ const slackEvents = createEventAdapter(process.env.SLACK_SIGNING_SECRET);
 const port = process.env.PORT || 5000;
 
 // GLOBALS
+// Local representation of db
 var re;
+// Username list, makes it easier to check messages. Lowers N for the O(N)
 var ulist = [];
 var update = true;
 
@@ -34,23 +35,32 @@ console.log("Start...");
 setUserVariables();
 
 // FUNCTIONS
+// Creates reaction in the database.
+// The function takes in a username in the format (UJTPQPX51)
+// and a reaction which is just text stripped from : : slack barriers.
 function createReact(username, reaction){
     try {
+        // Open db and pass args
         MongoClient.connect(
             url,
             { useUnifiedTopology: true },
             function(err, db) {
+            // Handle errors from opening db
             if (err){
                 throw err;
             }
             var dbo = db.db("autoreactdb");
             var object = { user: username, reac: reaction };
+            // Add reaction to db
             dbo.collection("reactions").insertOne(object, function(err, res) {
+            // A rule exists to prevent duplicate reactions per one username,
+            // this error is hit if that rule is broken.
                 if (err){
                     console.log("\nInsert error (most likely a duplicate)\n");
                     console.log(err);
                     db.close();
                 }else{
+                    // Update ulist
                     if (ulist.length != 0) {
                         ulist.push(username);
                     }
@@ -65,21 +75,30 @@ function createReact(username, reaction){
     }
 }
 
+// Deletes reaction in the database.
+// The function takes in a username in the format (UJTPQPX51)
+// and a reaction which is just text stripped from : : slack barriers.
 function deleteReact(username, reaction){
     try {
+        // Open db and pass args
         MongoClient.connect(
             url,
             { useUnifiedTopology: true },
             function(err, db) {
+            // Handle errors from opening db
             if (err){
                 throw err;
             }
             var dbo = db.db("autoreactdb");
             var object1 = { user: username, reac: reaction };
+            // Delete reaction from db
             dbo.collection("reactions").deleteOne(object1, function(err, obj) {
+            // A rule exists to prevent duplicate reactions per one username,
+            // this error is hit if that rule is broken.
                 if (err){
                     throw err;
                 }
+                // Update ulist
                 if (ulist.length != 0 && obj.deletedCount != 0) {
                     var index = ulist.indexOf(username);
                     if (index !== -1) {
@@ -96,21 +115,31 @@ function deleteReact(username, reaction){
     }
 }
 
+// Sets/refreshes/updates variables.
+// It grabs the current database list
+// and sets the returned java object to a global object in the program.
+// It also updates the ulist (some light dos protection) if it doesn't exist.
 function setUserVariables(){
     try{
+        // Open db and pass args
         MongoClient.connect(
             url,
             { useUnifiedTopology: true },
             function(err, db) {
+            // Handle errors from opening db
             if (err){
                 throw err;
             }
             var dbo = db.db("autoreactdb");
+            // Find all reactions (protection if anything else is added)
             dbo.collection("reactions").find({}).toArray(function(err, result) {
+                // Handle errors from going through db
                 if (err){
                     throw err;
                 }
+                // Set current variable to updated db
                 re = result;
+                // Update ulist
                 if (ulist.length == 0) {
                     for(var j = 0; j < re.length; j++){
                         ulist.push(re[j].user)
@@ -124,67 +153,86 @@ function setUserVariables(){
         console.log(err.message);
     }
 }
-// username, reaction
-function chatCommunication(text, username, a, b, option){
-	if (option == "add") {
-		attachments_json = [
-	        {
-	            "text": b,
-	            "fallback": "You are unable to post this to Jumpstart",
-	            "callback_id": "send_to_auto_react",
-	            "color": "#800080",
-	            "attachment_type": "default",
-	            "actions": [
-	                {
-	                    "name": "yes_a_ar",
-	                    "text": "Yes",
-	                    "style": "primary",
-	                    "type": "button",
-	                    "value": a+"~"+b
-	                },
-	                {
-	                    "name": "no_a_ar",
-	                    "text": "No",
-	                    "style": "danger",
-	                    "type": "button",
-	                    "value": "no"
-	                }
-	            ]
-	        }
-	    ]
-    	web.chat.postMessage({channel: username, text: "<@" + username + "> wants to add :" + b + ": to your name.\nDisclaimer: This emote will be reacted on every message you post.\nDo you want this emote to be added?", attachments: attachments_json}).catch(console.error);
-	}else if(option == "delete"){
-		attachments_json = [
-	        {
-	            "text": b,
-	            "fallback": "You are unable to delete this emote",
-	            "callback_id": "send_to_auto_react",
-	            "color": "#800080",
-	            "attachment_type": "default",
-	            "actions": [
-	                {
-	                    "name": "yes_d_ar",
-	                    "text": "Yes",
-	                    "style": "primary",
-	                    "type": "button",
-	                    "value": a+"~"+b
-	                },
-	                {
-	                    "name": "no_d_ar",
-	                    "text": "No",
-	                    "style": "danger",
-	                    "type": "button",
-	                    "value": "no"
-	                }
-	            ]
-	        }
-	    ]
-    	web.chat.postMessage({channel: username, text: "<@" + username + "> wants to delete :" + b + ": from your name.\nDisclaimer: This emote will no longer be reacted on every message you post.\nDo you want this emote to be deleted?", attachments: attachments_json}).catch(console.error);
-	}
+
+// Sends the add or delete request.
+// This is the function that sends interactive messages to the users dm.
+// It also passes that information to the /interactivity route through the JSON.
+function chatCommunication(a, b, option){
+    if (option == "add") {
+        attachments_json = [
+            {
+                "text": b,
+                "fallback": "You are unable to post this to Jumpstart",
+                "callback_id": "send_to_auto_react",
+                "color": "#800080",
+                "attachment_type": "default",
+                "actions": [
+                    {
+                        "name": "yes_a_ar",
+                        "text": "Yes",
+                        "style": "primary",
+                        "type": "button",
+                        "value": a+"~"+b
+                    },
+                    {
+                        "name": "no_a_ar",
+                        "text": "No",
+                        "style": "danger",
+                        "type": "button",
+                        "value": "no"
+                    }
+                ]
+            }
+        ]
+        // Send message to user
+        web.chat.postMessage(
+            {
+                channel: a,
+                text: "<@" + a + "> wants to add :" + b + ": to your name.\nDisclaimer: This emote will be reacted on every message you post.\nDo you want this emote to be added?",
+                attachments: attachments_json
+            }).catch(console.error);
+    }else if(option == "delete"){
+        attachments_json = [
+            {
+                "text": b,
+                "fallback": "You are unable to delete this emote",
+                "callback_id": "send_to_auto_react",
+                "color": "#800080",
+                "attachment_type": "default",
+                "actions": [
+                    {
+                        "name": "yes_d_ar",
+                        "text": "Yes",
+                        "style": "primary",
+                        "type": "button",
+                        "value": a+"~"+b
+                    },
+                    {
+                        "name": "no_d_ar",
+                        "text": "No",
+                        "style": "danger",
+                        "type": "button",
+                        "value": "no"
+                    }
+                ]
+            }
+        ]
+        // Send message to user
+        web.chat.postMessage(
+            {
+                channel: a,
+                text: "<@" + a + "> wants to delete :" + b + ": from your name.\nDisclaimer: This emote will no longer be reacted on every message you post.\nDo you want this emote to be deleted?",
+                attachments: attachments_json
+            }).catch(console.error);
+    }
 }
 
 // ROUTES
+// Slash command "/add".
+// When someone types /add this route will parse any arguments
+// and send an add request to the specified user.
 app.post("/add", (req, res) => {
+    // Parsing
     let text = req.body.text;
     let info = req.body.user_id;
     var comTokens = text.split(" ");
@@ -195,13 +243,17 @@ app.post("/add", (req, res) => {
         var r = comTokens[1].split(/[::]/);
         console.log(u[1]);
         console.log(r[1]);
-        chatCommunication(text, info, u[1], r[1], "add");
+        // Sends request
+        chatCommunication(u[1], r[1], "add");
     }else{
         res.send("Syntax Error: The command you entered was incorrect");
     }
     res.send("( "+ text + " )");
 });
 
+// Slash command "/delete".
+// When someone types /delete this route will parse any arguments
+// and send a delete request to the specified user.
 app.post("/delete", (req, res) => {
     let text = req.body.text;
     let info = req.body.user_id;
@@ -211,10 +263,11 @@ app.post("/delete", (req, res) => {
         && comTokens[1].lastIndexOf(":") != 0) {
         var u = comTokens[0].split(/[@|]/);
         var r = comTokens[1].split(/[::]/);
+// Delete request can only be created if it's on yourself.
         if (info == u[1]) {
             console.log(u[1])
             console.log(r[1])
-            chatCommunication(text, info, u[1], r[1], "delete");
+            chatCommunication(u[1], r[1], "delete");
         }else{
             res.send("You are not authorized to send that command!");
         }
@@ -224,23 +277,26 @@ app.post("/delete", (req, res) => {
     res.send("( "+ text + " )");
 });
 
+// Interactivity API route.
+// Takes the response from the function chatCommunication()
+// and actually activates createReact/deleteReact.
 app.post("/interactivity", (req, res) => {
-	var reqParse = JSON.parse(req.body.payload).actions[0];
-	var reqParseValue = reqParse.value.split("~");
-	var reqName = reqParse.name;
-	var reqU = reqParseValue[0];
-	var reqR = reqParseValue[1];
+    var reqParse = JSON.parse(req.body.payload).actions[0];
+    var reqParseValue = reqParse.value.split("~");
+    var reqName = reqParse.name;
+    var reqU = reqParseValue[0];
+    var reqR = reqParseValue[1];
     console.log(reqParse);
     console.log(reqU);
     console.log(reqR);
     if (reqName == "yes_a_ar") {
-    	createReact(reqU, reqR);
+        createReact(reqU, reqR);
         setUserVariables();
     }else if(reqName == "yes_d_ar"){
-    	deleteReact(reqU, reqR);
+        deleteReact(reqU, reqR);
         setUserVariables();
     }else{
-    	res.send("No U");
+        res.send("No U");
     }
     res.send("Route Finished");
 });
@@ -250,17 +306,23 @@ app.listen(3000, () => {
 });
 
 // SLACK EVENTS API
+// Handles all of the Slack Events API input.
+// It also checks if the ulist contains the correct username of the message
+// and distributes reactions accordingly.
 slackEvents.on("message", (event) => {
-    console.log(event);
-    console.log(re);
-    console.log(ulist);
 
+    //  Update ulist
+    if(ulist.includes(event.user)){
+        if (update == true) {
+            setUserVariables();
+            update = false;
+        }
+    }
+
+    // O(N) time, but ulist variable lowers the N on average.
+    // Lowest complexity since the db needs to be checked though at least once.
     for (var j = 0; j < re.length; j++) {
         if (event.user == ulist[j]) {
-            if (update == true) {
-                setUserVariables();
-                update = false;
-            }
             web.reactions.add(
             {
                 channel: event.channel,
