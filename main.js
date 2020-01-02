@@ -30,6 +30,20 @@ var re;
 var ulist = [];
 var update = true;
 
+// SETUP DB
+MongoClient.connect(url, { useUnifiedTopology: true }, function(err, db) {
+    if (err) throw err;
+    console.log("Database created!");
+    var dbo = db.db("autoreactdb");
+    url = "mongodb://localhost:27017/";
+    dbo.createCollection("reactions", function(err, res) {
+        if (err) throw err;
+        console.log("Collection created!");
+        db.close();
+    });
+    dbo.collection("reactions").createIndex( { user: 1, reac: 1 }, { unique: true } );
+});
+
 // SETUP PROCESSES
 console.log("Start...");
 setUserVariables();
@@ -39,80 +53,70 @@ setUserVariables();
 // The function takes in a username in the format (UJTPQPX51)
 // and a reaction which is just text stripped from : : slack barriers.
 function createReact(username, reaction){
-    try {
-        // Open db and pass args
-        MongoClient.connect(
-            url,
-            { useUnifiedTopology: true },
-            function(err, db) {
-            // Handle errors from opening db
+    // Open db and pass args
+    MongoClient.connect(
+        url,
+        { useUnifiedTopology: true },
+        function(err, db) {
+        // Handle errors from opening db
+        if (err){
+            throw err;
+        }
+        var dbo = db.db("autoreactdb");
+        var object = { user: username, reac: reaction };
+        // Add reaction to db
+        dbo.collection("reactions").insertOne(object, function(err, res) {
+        // A rule exists to prevent duplicate reactions per one username,
+        // this error is hit if that rule is broken.
             if (err){
-                throw err;
-            }
-            var dbo = db.db("autoreactdb");
-            var object = { user: username, reac: reaction };
-            // Add reaction to db
-            dbo.collection("reactions").insertOne(object, function(err, res) {
-            // A rule exists to prevent duplicate reactions per one username,
-            // this error is hit if that rule is broken.
-                if (err){
-                    console.log("\nInsert error (most likely a duplicate)\n");
-                    console.log(err);
-                    db.close();
-                }else{
-                    // Update ulist
-                    if (ulist.length != 0) {
-                        ulist.push(username);
-                    }
-                    console.log("Reaction added!");
-                    db.close();
+                console.log("\nInsert error (most likely a duplicate)\n");
+                console.log(err);
+                db.close();
+            }else{
+                // Update ulist
+                if (ulist.length != 0) {
+                    ulist.push(username);
                 }
-            });
+                console.log("Reaction added!");
+                db.close();
+            }
         });
-    }
-    catch(err) {
-        console.log(err.message);
-    }
+    });
 }
 
 // Deletes reaction in the database.
 // The function takes in a username in the format (UJTPQPX51)
 // and a reaction which is just text stripped from : : slack barriers.
 function deleteReact(username, reaction){
-    try {
-        // Open db and pass args
-        MongoClient.connect(
-            url,
-            { useUnifiedTopology: true },
-            function(err, db) {
-            // Handle errors from opening db
+    // Open db and pass args
+    MongoClient.connect(
+        url,
+        { useUnifiedTopology: true },
+        function(err, db) {
+        // Handle errors from opening db
+        if (err){
+            throw err;
+        }
+        var dbo = db.db("autoreactdb");
+        var object1 = { user: username, reac: reaction };
+        // Delete reaction from db
+        dbo.collection("reactions").deleteOne(object1, function(err, obj) {
+        // A rule exists to prevent duplicate reactions per one username,
+        // this error is hit if that rule is broken.
             if (err){
                 throw err;
             }
-            var dbo = db.db("autoreactdb");
-            var object1 = { user: username, reac: reaction };
-            // Delete reaction from db
-            dbo.collection("reactions").deleteOne(object1, function(err, obj) {
-            // A rule exists to prevent duplicate reactions per one username,
-            // this error is hit if that rule is broken.
-                if (err){
-                    throw err;
+            // Update ulist
+            if (ulist.length != 0 && obj.deletedCount != 0) {
+                var index = ulist.indexOf(username);
+                if (index !== -1) {
+                    ulist.splice(index, 1);
                 }
-                // Update ulist
-                if (ulist.length != 0 && obj.deletedCount != 0) {
-                    var index = ulist.indexOf(username);
-                    if (index !== -1) {
-                        ulist.splice(index, 1);
-                    }
-                }
-                console.log("Reaction deleted!");
-                db.close();
-            });
+            }
+            console.log("Reaction deleted!");
+            db.close();
         });
-    }
-    catch(err) {
-        console.log(err.message);
-    }
+    });
 }
 
 // Sets/refreshes/updates variables.
