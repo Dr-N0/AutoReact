@@ -310,7 +310,6 @@ app.listen(3000, () => {
 // It also checks if the ulist contains the correct username of the message
 // and distributes reactions accordingly.
 slackEvents.on("message", (event) => {
-
     //  Update ulist
     if(ulist.includes(event.user)){
         if (update == true) {
@@ -318,7 +317,7 @@ slackEvents.on("message", (event) => {
             update = false;
         }
     }
-
+    
     // O(N) time, but ulist variable lowers the N on average.
     // Lowest complexity since the db needs to be checked though at least once.
     for (var j = 0; j < re.length; j++) {
