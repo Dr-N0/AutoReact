@@ -1,6 +1,9 @@
 // Author: Beckett Jenen (Dr-N0)
 
 // NODE MODULES
+if (process.env.NODE_ENV !== 'production'){
+    require('dotenv').config()
+}
 const express = require("express");
 const app = express();
 var bodyParser = require("body-parser");
@@ -185,8 +188,7 @@ function chatCommunication(a, b, option){
             }
         ]
         // Send message to user
-        web.chat.postMessage(
-            {
+        web.chat.postMessage({
                 channel: a,
                 text: "<@" + a + "> wants to add :" + b + ": to your name.\nDisclaimer: This emote will be reacted on every message you post.\nDo you want this emote to be added?",
                 attachments: attachments_json
@@ -218,8 +220,7 @@ function chatCommunication(a, b, option){
             }
         ]
         // Send message to user
-        web.chat.postMessage(
-            {
+        web.chat.postMessage({
                 channel: a,
                 text: "<@" + a + "> wants to delete :" + b + ": from your name.\nDisclaimer: This emote will no longer be reacted on every message you post.\nDo you want this emote to be deleted?",
                 attachments: attachments_json
@@ -322,8 +323,7 @@ slackEvents.on("message", (event) => {
     // Lowest complexity since the db needs to be checked though at least once.
     for (var j = 0; j < re.length; j++) {
         if (event.user == ulist[j]) {
-            web.reactions.add(
-            {
+            web.reactions.add({
                 channel: event.channel,
                 name: re[j].reac,
                 timestamp: event.ts
