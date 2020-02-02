@@ -18,12 +18,11 @@ const web = new WebClient(token);
 const { createEventAdapter } = require("@slack/events-api");
 
 // CONFIGURATION FOR MODULES
+const slackEvents = createEventAdapter(process.env.SLACK_SIGNING_SECRET);
 app.use('/slack/events', slackEvents.requestListener());
 app.use(bodyParser.json());
 // support json encoded bodies
 app.use(bodyParser.urlencoded({ extended: true }));
-// support encoded bodies
-const slackEvents = createEventAdapter(process.env.SLACK_SIGNING_SECRET);
 // Initialize using signing secret from environment variables
 const port = process.env.PORT || 5000;
 
