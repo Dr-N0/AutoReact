@@ -18,6 +18,7 @@ const web = new WebClient(token);
 const { createEventAdapter } = require("@slack/events-api");
 
 // CONFIGURATION FOR MODULES
+app.use('/slack/events', slackEvents.requestListener());
 app.use(bodyParser.json());
 // support json encoded bodies
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -302,7 +303,7 @@ app.post("/interactivity", (req, res) => {
     res.send("Route Finished");
 });
 
-app.listen(3000, () => {
+app.listen(port, () => {
     console.log(`Slash port = 3000`)
 });
 
@@ -338,7 +339,7 @@ slackEvents.on("message", (event) => {
 slackEvents.on("error", console.error);
 
 // Start a basic HTTP server
-slackEvents.start(port).then(() => {
-    // Listening on path '/slack/events' by default
-    console.log(`Events port = ${port}`);
-});
+// slackEvents.start(port).then(() => {
+//     // Listening on path '/slack/events' by default
+//     console.log(`Events port = ${port}`);
+// });
