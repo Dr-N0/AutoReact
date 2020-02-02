@@ -52,7 +52,7 @@ function createReact(username, reaction){
             if (err){
                 throw err;
             }
-            var dbo = db.db("autoreactdb");
+            var dbo = db.db(process.env.URL);
             var object = { user: username, reac: reaction };
             // Add reaction to db
             dbo.collection("reactions").insertOne(object, function(err, res) {
@@ -92,7 +92,7 @@ function deleteReact(username, reaction){
             if (err){
                 throw err;
             }
-            var dbo = db.db("autoreactdb");
+            var dbo = db.db(process.env.URL);
             var object1 = { user: username, reac: reaction };
             // Delete reaction from db
             dbo.collection("reactions").deleteOne(object1, function(err, obj) {
@@ -133,7 +133,7 @@ function setUserVariables(){
             if (err){
                 throw err;
             }
-            var dbo = db.db("autoreactdb");
+            var dbo = db.db(process.env.URL);
             // Find all reactions (protection if anything else is added)
             dbo.collection("reactions").find({}).toArray(function(err, result) {
                 // Handle errors from going through db
