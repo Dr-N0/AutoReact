@@ -1,5 +1,4 @@
 // Author: Beckett Jenen (Dr-N0)
-
 // NODE MODULES
 if (process.env.NODE_ENV !== 'production'){
     require('dotenv').config()
