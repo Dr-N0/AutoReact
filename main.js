@@ -322,14 +322,15 @@ slackEvents.on("message", (event) => {
     // Lowest complexity since the db needs to be checked though at least once.
     for (var j = 0; j < re.length; j++) {
         if (event.user == ulist[j]) {
-            const rollTheDice = Math.random() > 0.5;
-            if (rollTheDice) {
-                web.reactions.add({
-                    channel: event.channel,
-                    name: re[j].reac,
-                    timestamp: event.ts
-                }).catch(console.error);
-            }
+//             const rollTheDice = Math.random() > 0.5;
+//             if (rollTheDice) {
+                
+//             }
+            web.reactions.add({
+                channel: event.channel,
+                name: re[j].reac,
+                timestamp: event.ts
+            }).catch(console.error);
         }
     }
 
